@@ -12,19 +12,18 @@ import java.util.*;
  */
 public class User {
 
-    PrivateKey myKey;
-    Map<String, PublicKey> otherUsersKey = new HashMap<>();//should be dictionary with user ids and it public keys
-    String userID=new String();
+    PrivateKey privateKey;
+    PublicKey publicKey;
+
+    String userID = new String();
     String r = new String();
-
-
     List<String> possibleUsers = new ArrayList<>(); //Powinno sie dodać zbior dostepnych userow
     List<Nonce> nonceList = new ArrayList<>();
     Nonce myNonce;
     Integer Z;
     Random random = new Random();
     List<Integer> otherZ = new ArrayList<>();
-    Long sessionKey=null;
+    Long sessionKey = null;
 
     static Integer K = 5;//Stopien zaszyfrowania
     static Integer Q = 3;//
@@ -48,23 +47,23 @@ public class User {
             r += n.toString();
         }
         myNonce = new Nonce(userID, r);
-        nonceList.add(myNonce);
     }
 
-    public Map<String, PublicKey> getOtherUsersKey() {
-        return otherUsersKey;
+    public PublicKey getPublicKey() {
+        return publicKey;
     }
 
-    public void setOtherUsersKey(Map<String, PublicKey> otherUsersKey) {
-        this.otherUsersKey = otherUsersKey;
+    public void setPublicKey(PublicKey publicKey) {
+        this.publicKey = publicKey;
     }
 
-    public PrivateKey getMyKey() {
-        return myKey;
+
+    public PrivateKey getPrivateKey() {
+        return privateKey;
     }
 
-    public void setMyKey(PrivateKey myKey) {
-        this.myKey = myKey;
+    public void setPrivateKey(PrivateKey privateKey) {
+        this.privateKey = privateKey;
     }
 
 
@@ -113,27 +112,23 @@ public class User {
 
 
         String sigma = "1" + (Z);
-
+        Collections.sort(nonceList);
         for (Nonce nonce : nonceList) {
             sigma += nonce.toString();
         }
         try {
             Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
 
-            cipher.init(Cipher.ENCRYPT_MODE, otherUsersKey.get(this.userID));
+            cipher.init(Cipher.ENCRYPT_MODE, publicKey);
 
             byte[] SignSigm = cipher.doFinal(sigma.getBytes());
-            System.out.println(SignSigm);
-            Cipher cipher2=Cipher.getInstance("RSA/ECB/PKCS1Padding");
-            cipher2.init(Cipher.DECRYPT_MODE,myKey);
-            byte[]decryptSign=cipher2.doFinal();
-            System.out.println(SignSigm.toString()+":"+decryptSign.toString());
+            String sig = new String(Base64.getEncoder().encode(SignSigm));
 
-            message += userID + "1" + Z.toString().length() + Z + SignSigm;//optimzed just for Z<999999999
 
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        } catch (Exception e) {
+            message += userID + "1" + Z.toString().length() + Z + sig;//optimized just for Z<999999999
+
+        }
+        catch (Exception e) {
             e.printStackTrace();
         }
         return message;
@@ -159,18 +154,24 @@ public class User {
                 Zj = message.substring(zStartIndex, zEndIndex);
             }
         }
-        Cipher cipher = null;
         try {
-            cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+           Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
 
-            PublicKey publicKey = otherUsersKey.get(idUser);
-            cipher.init(Cipher.DECRYPT_MODE, publicKey);
+            cipher.init(Cipher.DECRYPT_MODE, privateKey);
 
-            String sigma = message.substring(zEndIndex );
-            byte[] decryptedSigma = cipher.doFinal(sigma.getBytes());
+            String sigma = message.substring(zEndIndex);
+            byte[]arr=Base64.getDecoder().decode(sigma.getBytes());
+            byte[] decryptedSigma = cipher.doFinal(arr);
             String decSigma = new String(decryptedSigma);
-            String nonce = nonceList.toString();
-            String verify = "1" + Zj + nonce;
+          //  Collections.sort(nonceList);
+            String nonceStr=new String();
+            for (Nonce nonce : nonceList) {
+                nonceStr += nonce.toString();
+            }
+
+
+            String verify = "1" + Zj + nonceStr;
+            String decnonce=decSigma.substring(decSigma.length()-nonceStr.length());
 
             if (decSigma.equals(verify)) {
                 System.out.println("third condition fullfiled!");
@@ -191,22 +192,34 @@ public class User {
         //
         String X = getX(Z);
         String message = new String();
-        String sig = "2" + X + nonceList.toString();
+        Collections.sort(nonceList);
+        String nonceStr=new String();
+        for(Nonce nonce:nonceList){
+            nonceStr+=nonce.toString();
+        }
+        String sig = "2" + X + nonceStr;
         Cipher cipher = null;
         try {
             cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-
-
-            cipher.init(Cipher.ENCRYPT_MODE, myKey);
+            cipher.init(Cipher.ENCRYPT_MODE, publicKey);
             byte[] sigma = cipher.doFinal(sig.getBytes());
-            message = userID + "2" + X.length() + X + sigma.toString();
+            String sgm=new String(Base64.getEncoder().encode(sigma));
+            cipher.init(Cipher.DECRYPT_MODE, privateKey);
+
+            byte[]arr=Base64.getDecoder().decode(sgm.getBytes());
+
+            byte[] decryptedSigma = cipher.doFinal(arr);
+            String decSigma = new String(decryptedSigma);
+            System.out.println(decSigma.equals(sig));
+            message = userID + "2" + X.length() + X + sgm;
 
         } catch (Exception e) {
             e.printStackTrace();
         }
         return message;
     }
-//TODO: also test
+
+    //TODO: also test
     public void reciveX(String message) {
         boolean firstCondition = false, secondCondition = false, thirdCondition = false;
         String idUser = new String();
@@ -228,12 +241,12 @@ public class User {
         Cipher cipher = null;
         try {
             cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+            cipher.init(Cipher.DECRYPT_MODE, privateKey);
 
-            PublicKey publicKey = otherUsersKey.get(idUser);
-            cipher.init(Cipher.DECRYPT_MODE, publicKey);
+            String sigma = message.substring(xEndIndex);
+            byte[]arr=Base64.getDecoder().decode(sigma.getBytes());
 
-            String sigma = message.substring(xEndIndex + 1);
-            byte[] decryptedSigma = cipher.doFinal(sigma.getBytes());
+            byte[] decryptedSigma = cipher.doFinal(arr);
             String decSigma = new String(decryptedSigma);
             String nonce = nonceList.toString();
             String verify = "1" + Xj + nonce;
@@ -249,22 +262,21 @@ public class User {
         }
 
     }
-//TODO: ask if it is correct way, and then how to encrypt and decrypt message
+
+    //TODO: ask if it is correct way, and then how to encrypt and decrypt message
     public void computeSessionKey() {
-        Integer n=0;
+        Integer n = 0;
         Collections.sort(otherZ);
         for (int i = 0; i < otherZ.size() - 1; i++) {
             Integer si1 = getSi(otherZ.get(i));
             Integer si2 = getSi(otherZ.get(i + 1));
-            n=n+si1*si2;
+            n = n + si1 * si2;
         }
-        Integer si1=getSi(otherZ.get(0));
-        Integer si2=getSi(otherZ.get(otherZ.size()-1));
-        n=n+si1*si2;
-        sessionKey= (long)Math.pow(G,n);
+        Integer si1 = getSi(otherZ.get(0));
+        Integer si2 = getSi(otherZ.get(otherZ.size() - 1));
+        n = n + si1 * si2;
+        sessionKey = (long) Math.pow(G, n);
     }
-
-
 
 
     public Integer getSi(Integer Zi) {

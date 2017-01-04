@@ -3,7 +3,7 @@ package com.company;
 /**
  * Created by Rafal on 2016-12-31.
  */
-public class Nonce {
+public class Nonce implements Comparable {
     String userID;
     String r;
 
@@ -30,5 +30,20 @@ public class Nonce {
 
     public String toString() {
         return userID.toString() + r.toString();
+    }
+
+    @Override
+    public int compareTo(Object o) {
+        Nonce comp = (Nonce) o;
+        Integer compID = new Integer(comp.getUserID());
+        Integer ID = new Integer(this.getUserID());
+        if (compID < ID) {
+            return -1;
+        }
+        if (compID == ID) {
+            return 0;
+        } else
+            return -1;
+
     }
 }

@@ -32,6 +32,8 @@ public class Main {
         String messageB=bobek.computeSignature();
         bobek.recieveSignature(messageA);
         adam.recieveSignature(messageA);
+        String messageA2=adam.sendX();
+        bobek.reciveX(messageA2);
 
     }
     static void sendNonce(){
@@ -42,7 +44,9 @@ public class Main {
         String messageB=bobek.getUserID()+"0"+bobek.getR();
 
         adam.addNonce(messageB);
-       // bobek.addNonce(messageA);
+        bobek.addNonce(messageB);
+        adam.addNonce(messageA);
+        bobek.addNonce(messageA);
 
 
 
@@ -52,7 +56,6 @@ public class Main {
         KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
         keyPairGenerator.initialize(1024);
         KeyPair keyPair = keyPairGenerator.genKeyPair();
-        KeyPair keyPair2=keyPairGenerator.genKeyPair();
 
          adam= new User();
          bobek= new User();
@@ -62,15 +65,12 @@ public class Main {
        bobek.getPossibleUsers().add(bobek.getUserID());
 
        //Powinno być bezpiecznym kanałem np przez plik na dysku
-        adam.setMyKey(keyPair.getPrivate());
-       adam.getOtherUsersKey().put(bobek.getUserID(),keyPair2.getPublic());
-       adam.getOtherUsersKey().put(adam.getUserID(),keyPair.getPublic());
-        bobek.setMyKey(keyPair2.getPrivate());
-        bobek.getOtherUsersKey().put(adam.getUserID(),keyPair.getPublic());
-       bobek.getOtherUsersKey().put(adam.getUserID(),keyPair2.getPublic());
+        adam.setPrivateKey(keyPair.getPrivate());
+       adam.setPublicKey(keyPair.getPublic());
+        bobek.setPrivateKey(keyPair.getPrivate());
+       bobek.setPublicKey(keyPair.getPublic());
 
 
 
-        // 2.Real algorithm
     }
 }
