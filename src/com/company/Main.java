@@ -30,6 +30,8 @@ public class Main {
     static void computeAndSendSignature(){
         String messageA=adam.computeSignature();
         String messageB=bobek.computeSignature();
+        bobek.recieveSignature(messageA);
+        adam.recieveSignature(messageA);
 
     }
     static void sendNonce(){
@@ -40,7 +42,7 @@ public class Main {
         String messageB=bobek.getUserID()+"0"+bobek.getR();
 
         adam.addNonce(messageB);
-        bobek.addNonce(messageA);
+       // bobek.addNonce(messageA);
 
 
 
@@ -62,8 +64,10 @@ public class Main {
        //Powinno być bezpiecznym kanałem np przez plik na dysku
         adam.setMyKey(keyPair.getPrivate());
        adam.getOtherUsersKey().put(bobek.getUserID(),keyPair2.getPublic());
+       adam.getOtherUsersKey().put(adam.getUserID(),keyPair.getPublic());
         bobek.setMyKey(keyPair2.getPrivate());
         bobek.getOtherUsersKey().put(adam.getUserID(),keyPair.getPublic());
+       bobek.getOtherUsersKey().put(adam.getUserID(),keyPair2.getPublic());
 
 
 

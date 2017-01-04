@@ -14,7 +14,7 @@ public class User {
 
     PrivateKey myKey;
     Map<String, PublicKey> otherUsersKey = new HashMap<>();//should be dictionary with user ids and it public keys
-    String userID;
+    String userID=new String();
     String r = new String();
 
 
@@ -23,6 +23,8 @@ public class User {
     Nonce myNonce;
     Integer Z;
     Random random = new Random();
+    List<Integer> otherZ = new ArrayList<>();
+    Long sessionKey=null;
 
     static Integer K = 5;//Stopien zaszyfrowania
     static Integer Q = 3;//
@@ -94,11 +96,12 @@ public class User {
         int rStart = message.length() - K;
         String nonceR = message.substring(rStart, message.length());
         String nonceUID = message.substring(0, rStart - 1);
-        System.out.println(nonceUID + " : " + nonceR);
+
         Nonce nonce = new Nonce(nonceUID, nonceR);
         nonceList.add(nonce);
     }
-//STEP 2
+
+    //STEP 2
     public String computeSignature() {
         String message = new String();
         int s = random.nextInt(Q) + 1;
@@ -117,10 +120,14 @@ public class User {
         try {
             Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
 
-            cipher.init(Cipher.ENCRYPT_MODE, myKey);
+            cipher.init(Cipher.ENCRYPT_MODE, otherUsersKey.get(this.userID));
 
             byte[] SignSigm = cipher.doFinal(sigma.getBytes());
             System.out.println(SignSigm);
+            Cipher cipher2=Cipher.getInstance("RSA/ECB/PKCS1Padding");
+            cipher2.init(Cipher.DECRYPT_MODE,myKey);
+            byte[]decryptSign=cipher2.doFinal();
+            System.out.println(SignSigm.toString()+":"+decryptSign.toString());
 
             message += userID + "1" + Z.toString().length() + Z + SignSigm;//optimzed just for Z<999999999
 
@@ -131,7 +138,8 @@ public class User {
         }
         return message;
     }
-//STEP 3A
+
+    //STEP 3A
     //TODO:check if it works!!
     public void recieveSignature(String message) {
         boolean firstCondition = false, secondCondition = false, thirdCondition = false;
@@ -144,9 +152,9 @@ public class User {
             if (userId.equals(message.substring(0, userId.length())) && (message.charAt(userId.length()) == one)) {
                 firstCondition = true;
                 secondCondition = true;
-                idUser = userID;
-                zSize = new Integer(message.charAt(userId.length() + 1));
-                zStartIndex = userID.length() + 2;
+                idUser = userId;
+                zSize = Character.getNumericValue(message.charAt(userId.length() + 1));
+                zStartIndex = userId.length() + 2;
                 zEndIndex = zStartIndex + zSize;
                 Zj = message.substring(zStartIndex, zEndIndex);
             }
@@ -158,7 +166,7 @@ public class User {
             PublicKey publicKey = otherUsersKey.get(idUser);
             cipher.init(Cipher.DECRYPT_MODE, publicKey);
 
-            String sigma = message.substring(zEndIndex + 1);
+            String sigma = message.substring(zEndIndex );
             byte[] decryptedSigma = cipher.doFinal(sigma.getBytes());
             String decSigma = new String(decryptedSigma);
             String nonce = nonceList.toString();
@@ -168,6 +176,7 @@ public class User {
                 System.out.println("third condition fullfiled!");
                 thirdCondition = true;
             }
+            otherZ.add(new Integer(Zj));
 
 
         } catch (Exception e) {
@@ -176,11 +185,12 @@ public class User {
 
 
     }
-//STEP 3B
+
+    //STEP 3B
     public String sendX() {
         //
         String X = getX(Z);
-        String message=new String();
+        String message = new String();
         String sig = "2" + X + nonceList.toString();
         Cipher cipher = null;
         try {
@@ -189,14 +199,15 @@ public class User {
 
             cipher.init(Cipher.ENCRYPT_MODE, myKey);
             byte[] sigma = cipher.doFinal(sig.getBytes());
-             message = userID +"2"+X.length()+X+sigma.toString();
+            message = userID + "2" + X.length() + X + sigma.toString();
 
         } catch (Exception e) {
             e.printStackTrace();
         }
         return message;
     }
-    public void reciveX(String message){
+//TODO: also test
+    public void reciveX(String message) {
         boolean firstCondition = false, secondCondition = false, thirdCondition = false;
         String idUser = new String();
         Integer xSize = 0;
@@ -228,7 +239,7 @@ public class User {
             String verify = "1" + Xj + nonce;
 
             if (decSigma.equals(verify)) {
-                System.out.println("third condition fullfiled!");
+                System.out.println("third condition fulfiled!");
                 thirdCondition = true;
             }
 
@@ -238,8 +249,37 @@ public class User {
         }
 
     }
-    public void computeSessionKey(){
+//TODO: ask if it is correct way, and then how to encrypt and decrypt message
+    public void computeSessionKey() {
+        Integer n=0;
+        Collections.sort(otherZ);
+        for (int i = 0; i < otherZ.size() - 1; i++) {
+            Integer si1 = getSi(otherZ.get(i));
+            Integer si2 = getSi(otherZ.get(i + 1));
+            n=n+si1*si2;
+        }
+        Integer si1=getSi(otherZ.get(0));
+        Integer si2=getSi(otherZ.get(otherZ.size()-1));
+        n=n+si1*si2;
+        sessionKey= (long)Math.pow(G,n);
+    }
 
+
+
+
+    public Integer getSi(Integer Zi) {
+        boolean undone = true;
+        int si = 1;
+        int m = G % Q;
+        while (undone) {
+            if (m == Zi) {
+                undone = false;
+            } else {
+                m = (m * G) % Q;
+                si++;
+            }
+        }
+        return si;
     }
 
     public String getX(int k) {
