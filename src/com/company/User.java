@@ -2,9 +2,7 @@ package com.company;
 
 import javax.crypto.Cipher;
 import javax.crypto.NoSuchPaddingException;
-import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
-import java.security.PublicKey;
+import java.security.*;
 import java.util.*;
 
 /**
@@ -117,12 +115,19 @@ public class User {
             sigma += nonce.toString();
         }
         try {
-            Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
 
-            cipher.init(Cipher.ENCRYPT_MODE, publicKey);
 
-            byte[] SignSigm = cipher.doFinal(sigma.getBytes());
-            String sig = new String(Base64.getEncoder().encode(SignSigm));
+            Signature signature = Signature.getInstance("SHA1withRSA", "BC");
+            signature.initSign(privateKey, new SecureRandom());
+            byte[] arr = sigma.getBytes();
+            signature.update(arr);
+            byte[] sigBytes = signature.sign();
+//            Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+//
+//            cipher.init(Cipher.ENCRYPT_MODE, publicKey);
+//
+//            byte[] SignSigm = cipher.doFinal(sigma.getBytes());
+            String sig = new String(Base64.getEncoder().encode(sigBytes));
 
 
             message += userID + "1" + Z.toString().length() + Z + sig;//optimized just for Z<999999999
@@ -155,14 +160,16 @@ public class User {
             }
         }
         try {
-           Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
 
-            cipher.init(Cipher.DECRYPT_MODE, privateKey);
 
-            String sigma = message.substring(zEndIndex);
-            byte[]arr=Base64.getDecoder().decode(sigma.getBytes());
-            byte[] decryptedSigma = cipher.doFinal(arr);
-            String decSigma = new String(decryptedSigma);
+//           Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+//
+//            cipher.init(Cipher.DECRYPT_MODE, privateKey);
+//
+//            String sigma = message.substring(zEndIndex);
+//            byte[]arr=Base64.getDecoder().decode(sigma.getBytes());
+//            byte[] decryptedSigma = cipher.doFinal(arr);
+
           //  Collections.sort(nonceList);
             String nonceStr=new String();
             for (Nonce nonce : nonceList) {
@@ -171,12 +178,14 @@ public class User {
 
 
             String verify = "1" + Zj + nonceStr;
-            String decnonce=decSigma.substring(decSigma.length()-nonceStr.length());
+            Signature signature = Signature.getInstance("SHA1withRSA", "BC");
+            signature.initVerify(publicKey);
+            String sigma = message.substring(zEndIndex);
 
-            if (decSigma.equals(verify)) {
-                System.out.println("third condition fullfiled!");
-                thirdCondition = true;
-            }
+            byte[] arr = Base64.getDecoder().decode(sigma.getBytes());;
+            signature.update(arr);
+            signature.verify(verify.getBytes());
+
             otherZ.add(new Integer(Zj));
 
 
@@ -200,18 +209,27 @@ public class User {
         String sig = "2" + X + nonceStr;
         Cipher cipher = null;
         try {
-            cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-            cipher.init(Cipher.ENCRYPT_MODE, publicKey);
-            byte[] sigma = cipher.doFinal(sig.getBytes());
-            String sgm=new String(Base64.getEncoder().encode(sigma));
-            cipher.init(Cipher.DECRYPT_MODE, privateKey);
+//            cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+//            cipher.init(Cipher.ENCRYPT_MODE, publicKey);
+//            byte[] sigma = cipher.doFinal(sig.getBytes());
+//            String sgm=new String(Base64.getEncoder().encode(sigma));
 
-            byte[]arr=Base64.getDecoder().decode(sgm.getBytes());
+            Signature signature = Signature.getInstance("SHA1withRSA", "BC");
+            signature.initSign(privateKey, new SecureRandom());
+            byte[] toSign = sig.getBytes();
+            signature.update(toSign);
+            byte[] signed = signature.sign();
+            String sgm1=new String(Base64.getEncoder().encode(signed));
 
-            byte[] decryptedSigma = cipher.doFinal(arr);
-            String decSigma = new String(decryptedSigma);
-            System.out.println(decSigma.equals(sig));
-            message = userID + "2" + X.length() + X + sgm;
+
+        //    cipher.init(Cipher.DECRYPT_MODE, privateKey);
+
+//            byte[]arr=Base64.getDecoder().decode(sgm.getBytes());
+//
+//            byte[] decryptedSigma = cipher.doFinal(arr);
+//            String decSigma = new String(decryptedSigma);
+//            System.out.println(decSigma.equals(sig));
+            message = userID + "2" + X.length() + X + sgm1;
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -240,21 +258,24 @@ public class User {
         }
         Cipher cipher = null;
         try {
-            cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-            cipher.init(Cipher.DECRYPT_MODE, privateKey);
+//            cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+//            cipher.init(Cipher.DECRYPT_MODE, privateKey);
+//            String sigma = message.substring(xEndIndex);
+//            byte[]arr=Base64.getDecoder().decode(sigma.getBytes());
+//            byte[] decryptedSigma = cipher.doFinal(arr);
 
-            String sigma = message.substring(xEndIndex);
-            byte[]arr=Base64.getDecoder().decode(sigma.getBytes());
 
-            byte[] decryptedSigma = cipher.doFinal(arr);
-            String decSigma = new String(decryptedSigma);
             String nonce = nonceList.toString();
             String verify = "1" + Xj + nonce;
 
-            if (decSigma.equals(verify)) {
-                System.out.println("third condition fulfiled!");
-                thirdCondition = true;
-            }
+            Signature signature = Signature.getInstance("SHA1withRSA", "BC");
+            signature.initVerify(publicKey);
+            String sigma = message.substring(xEndIndex);
+
+            byte[] arr = Base64.getDecoder().decode(sigma.getBytes());
+
+            signature.update(arr);
+            signature.verify(verify.getBytes());
 
 
         } catch (Exception e) {
