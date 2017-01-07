@@ -21,7 +21,7 @@ public class User {
     Integer Z;
     Random random = new Random();
     List<Integer> otherZ = new ArrayList<>();
-    Long sessionKey = null;
+    Long sessionKey = new Long(1);
 
     static Integer K = 5;//Stopien zaszyfrowania
     static Integer Q = 3;//
@@ -117,23 +117,17 @@ public class User {
         try {
 
 
-            Signature signature = Signature.getInstance("SHA1withRSA", "BC");
+            Signature signature = Signature.getInstance("SHA1withRSA");
             signature.initSign(privateKey, new SecureRandom());
             byte[] arr = sigma.getBytes();
             signature.update(arr);
             byte[] sigBytes = signature.sign();
-//            Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-//
-//            cipher.init(Cipher.ENCRYPT_MODE, publicKey);
-//
-//            byte[] SignSigm = cipher.doFinal(sigma.getBytes());
             String sig = new String(Base64.getEncoder().encode(sigBytes));
 
 
             message += userID + "1" + Z.toString().length() + Z + sig;//optimized just for Z<999999999
 
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
         return message;
@@ -161,30 +155,24 @@ public class User {
         }
         try {
 
-
-//           Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-//
-//            cipher.init(Cipher.DECRYPT_MODE, privateKey);
-//
-//            String sigma = message.substring(zEndIndex);
-//            byte[]arr=Base64.getDecoder().decode(sigma.getBytes());
-//            byte[] decryptedSigma = cipher.doFinal(arr);
-
-          //  Collections.sort(nonceList);
-            String nonceStr=new String();
+            // Collections.sort(nonceList);
+            String nonceStr = new String();
             for (Nonce nonce : nonceList) {
                 nonceStr += nonce.toString();
             }
 
 
             String verify = "1" + Zj + nonceStr;
-            Signature signature = Signature.getInstance("SHA1withRSA", "BC");
+            Signature signature = Signature.getInstance("SHA1withRSA");
             signature.initVerify(publicKey);
             String sigma = message.substring(zEndIndex);
 
-            byte[] arr = Base64.getDecoder().decode(sigma.getBytes());;
-            signature.update(arr);
-            signature.verify(verify.getBytes());
+            byte[] arr = Base64.getDecoder().decode(sigma.getBytes());
+            ;
+            signature.update(verify.getBytes());
+            boolean result = signature.verify(arr);
+
+            System.out.println(result);
 
             otherZ.add(new Integer(Zj));
 
@@ -201,34 +189,21 @@ public class User {
         //
         String X = getX(Z);
         String message = new String();
-        Collections.sort(nonceList);
-        String nonceStr=new String();
-        for(Nonce nonce:nonceList){
-            nonceStr+=nonce.toString();
+        // Collections.sort(nonceList);
+        String nonceStr = new String();
+        for (Nonce nonce : nonceList) {
+            nonceStr += nonce.toString();
         }
         String sig = "2" + X + nonceStr;
-        Cipher cipher = null;
-        try {
-//            cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-//            cipher.init(Cipher.ENCRYPT_MODE, publicKey);
-//            byte[] sigma = cipher.doFinal(sig.getBytes());
-//            String sgm=new String(Base64.getEncoder().encode(sigma));
 
-            Signature signature = Signature.getInstance("SHA1withRSA", "BC");
+        try {
+
+            Signature signature = Signature.getInstance("SHA1withRSA");
             signature.initSign(privateKey, new SecureRandom());
             byte[] toSign = sig.getBytes();
             signature.update(toSign);
             byte[] signed = signature.sign();
-            String sgm1=new String(Base64.getEncoder().encode(signed));
-
-
-        //    cipher.init(Cipher.DECRYPT_MODE, privateKey);
-
-//            byte[]arr=Base64.getDecoder().decode(sgm.getBytes());
-//
-//            byte[] decryptedSigma = cipher.doFinal(arr);
-//            String decSigma = new String(decryptedSigma);
-//            System.out.println(decSigma.equals(sig));
+            String sgm1 = new String(Base64.getEncoder().encode(signed));
             message = userID + "2" + X.length() + X + sgm1;
 
         } catch (Exception e) {
@@ -249,34 +224,31 @@ public class User {
             if (userId.equals(message.substring(0, userId.length())) && (message.charAt(userId.length()) == two)) {
                 firstCondition = true;
                 secondCondition = true;
-                idUser = userID;
-                xSize = new Integer(message.charAt(userId.length() + 1));
-                xStartIndex = userID.length() + 2;
+                idUser = userId;
+                xSize = Character.getNumericValue(message.charAt(userId.length() + 1));
+                xStartIndex = userId.length() + 2;
                 xEndIndex = xStartIndex + xSize;
                 Xj = message.substring(xStartIndex, xEndIndex);
             }
         }
-        Cipher cipher = null;
         try {
-//            cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-//            cipher.init(Cipher.DECRYPT_MODE, privateKey);
-//            String sigma = message.substring(xEndIndex);
-//            byte[]arr=Base64.getDecoder().decode(sigma.getBytes());
-//            byte[] decryptedSigma = cipher.doFinal(arr);
+            String nonceStr = new String();
+            // Collections.sort(nonceList);
+            for (Nonce nonce : nonceList) {
+                nonceStr += nonce.toString();
+            }
 
+            String verify = "2" + Xj + nonceStr;
 
-            String nonce = nonceList.toString();
-            String verify = "1" + Xj + nonce;
-
-            Signature signature = Signature.getInstance("SHA1withRSA", "BC");
+            Signature signature = Signature.getInstance("SHA1withRSA");
             signature.initVerify(publicKey);
             String sigma = message.substring(xEndIndex);
 
             byte[] arr = Base64.getDecoder().decode(sigma.getBytes());
 
-            signature.update(arr);
-            signature.verify(verify.getBytes());
-
+            signature.update(verify.getBytes());
+            boolean result = signature.verify(arr);
+            System.out.println(result);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -296,7 +268,10 @@ public class User {
         Integer si1 = getSi(otherZ.get(0));
         Integer si2 = getSi(otherZ.get(otherZ.size() - 1));
         n = n + si1 * si2;
-        sessionKey = (long) Math.pow(G, n);
+        n = n % Q;
+        for (int i = 0; i < n; i++) {
+            sessionKey = (sessionKey * G) % Q;
+        }
     }
 
 
@@ -315,21 +290,38 @@ public class User {
         return si;
     }
 
-    public String getX(int k) {
+    public String getX(Integer k) {
         //TODO: check if it is correct way to compute X
-        Integer y = k - 1, zz = k + 1;
-        if (k == 1) {
-            y = Q;
+        Collections.sort(otherZ);
+        int index = otherZ.indexOf(k);
+        int prevIndex = index - 1;
+        int aftIndex = index + 1;
+        if (prevIndex < 0) {
+            prevIndex = otherZ.size() - 1;
         }
-        if (k == Q) {
-            zz = 1;
+        if (aftIndex > otherZ.size() - 1) {
+            aftIndex = 0;
         }
-        Integer X = 1;
-        Integer R = getIntR();
-        for (int i = 0; i < R; i++) {
-            X = X * (zz / y) % Q;
+        Integer Z1 = otherZ.get(prevIndex);
+        Integer Z2 = otherZ.get(aftIndex);
+
+        int s2 = getSi(Z2);
+        int n = Q - 1 - s2;
+        if (n < 0) {
+            n += Q;
         }
-        return X.toString();
+        Integer otherZ2 = 1;
+        for (int i = 0; i < n; i++) {
+            otherZ2 = (otherZ2 * G) % Q;
+        }
+        Integer Xi = Z1 * otherZ2;
+        Integer copy = Xi;
+        Integer pow = new Integer(this.r);
+        for (int i = 0; i < pow; i++) {
+            Xi = (Xi * copy) % Q;
+        }
+
+        return Xi.toString();
     }
 
     public int getIntR() {
