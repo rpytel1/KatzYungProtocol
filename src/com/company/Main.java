@@ -77,6 +77,7 @@ public class Main {
         KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
         keyPairGenerator.initialize(1024);
         KeyPair keyPair = keyPairGenerator.genKeyPair();
+        KeyPair keyPair1=keyPairGenerator.genKeyPair();
 
         adam = new User();
         bobek = new User();
@@ -87,9 +88,12 @@ public class Main {
 
         //Powinno być bezpiecznym kanałem np przez plik na dysku
         adam.setPrivateKey(keyPair.getPrivate());
-        adam.setPublicKey(keyPair.getPublic());
-        bobek.setPrivateKey(keyPair.getPrivate());
-        bobek.setPublicKey(keyPair.getPublic());
+        adam.getPublicKeyMap().put(adam.getUserID(),keyPair.getPublic());
+        adam.getPublicKeyMap().put(bobek.getUserID(),keyPair1.getPublic());
+        bobek.setPrivateKey(keyPair1.getPrivate());
+        bobek.getPublicKeyMap().put(adam.getUserID(),keyPair.getPublic());
+        bobek.getPublicKeyMap().put(bobek.getUserID(),keyPair1.getPublic());
+
 
 
     }

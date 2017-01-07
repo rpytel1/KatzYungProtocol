@@ -2,8 +2,15 @@ package com.company;
 
 import javax.crypto.Cipher;
 import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+import java.math.BigInteger;
 import java.security.*;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
 import java.util.*;
+
+import static java.util.Collections.*;
 
 /**
  * Created by Rafal on 2016-12-29.
@@ -12,7 +19,7 @@ public class User {
 
     PrivateKey privateKey;
     PublicKey publicKey;
-
+    Map<String, PublicKey> publicKeyMap = new HashMap<>();
     String userID = new String();
     String r = new String();
     List<String> possibleUsers = new ArrayList<>(); //Powinno sie dodać zbior dostepnych userow
@@ -24,8 +31,8 @@ public class User {
     Long sessionKey = new Long(1);
 
     static Integer K = 5;//Stopien zaszyfrowania
-    static Integer Q = 3;//
-    static Integer G = 5;
+    static Integer Q = 7919;//
+    static Integer G = 7207;
 
     public User() {
         for (int i = 0; i < K; i++) {
@@ -47,12 +54,12 @@ public class User {
         myNonce = new Nonce(userID, r);
     }
 
-    public PublicKey getPublicKey() {
-        return publicKey;
+    public Map<String, PublicKey> getPublicKeyMap() {
+        return publicKeyMap;
     }
 
-    public void setPublicKey(PublicKey publicKey) {
-        this.publicKey = publicKey;
+    public void setPublicKeyMap(Map<String, PublicKey> publicKeyMap) {
+        this.publicKeyMap = publicKeyMap;
     }
 
 
@@ -101,7 +108,7 @@ public class User {
     //STEP 2
     public String computeSignature() {
         String message = new String();
-        int s = random.nextInt(Q) + 1;
+        int s = random.nextInt(Q);
         //Compute Z
         Z = 1;
         for (int i = 0; i < s; i++) {
@@ -110,7 +117,7 @@ public class User {
 
 
         String sigma = "1" + (Z);
-        Collections.sort(nonceList);
+        sort(nonceList);
         for (Nonce nonce : nonceList) {
             sigma += nonce.toString();
         }
@@ -124,8 +131,7 @@ public class User {
             byte[] sigBytes = signature.sign();
             String sig = new String(Base64.getEncoder().encode(sigBytes));
 
-
-            message += userID + "1" + Z.toString().length() + Z + sig;//optimized just for Z<999999999
+            message += userID + "1" + Z.toString() + sig;
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -138,7 +144,6 @@ public class User {
     public void recieveSignature(String message) {
         boolean firstCondition = false, secondCondition = false, thirdCondition = false;
         String idUser = new String();
-        Integer zSize = 0;
         int zStartIndex = 0, zEndIndex = 0;
         char one = '1';
         String Zj = new String();
@@ -147,9 +152,8 @@ public class User {
                 firstCondition = true;
                 secondCondition = true;
                 idUser = userId;
-                zSize = Character.getNumericValue(message.charAt(userId.length() + 1));
-                zStartIndex = userId.length() + 2;
-                zEndIndex = zStartIndex + zSize;
+                zStartIndex = userId.length() + 1;
+                zEndIndex = message.length() - 172;
                 Zj = message.substring(zStartIndex, zEndIndex);
             }
         }
@@ -164,7 +168,8 @@ public class User {
 
             String verify = "1" + Zj + nonceStr;
             Signature signature = Signature.getInstance("SHA1withRSA");
-            signature.initVerify(publicKey);
+            PublicKey pubKey = publicKeyMap.get(idUser);
+            signature.initVerify(pubKey);
             String sigma = message.substring(zEndIndex);
 
             byte[] arr = Base64.getDecoder().decode(sigma.getBytes());
@@ -204,7 +209,7 @@ public class User {
             signature.update(toSign);
             byte[] signed = signature.sign();
             String sgm1 = new String(Base64.getEncoder().encode(signed));
-            message = userID + "2" + X.length() + X + sgm1;
+            message = userID + "2" + X + sgm1;
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -216,7 +221,6 @@ public class User {
     public void reciveX(String message) {
         boolean firstCondition = false, secondCondition = false, thirdCondition = false;
         String idUser = new String();
-        Integer xSize = 0;
         int xStartIndex = 0, xEndIndex = 0;
         char two = '2';
         String Xj = new String();
@@ -225,9 +229,9 @@ public class User {
                 firstCondition = true;
                 secondCondition = true;
                 idUser = userId;
-                xSize = Character.getNumericValue(message.charAt(userId.length() + 1));
-                xStartIndex = userId.length() + 2;
-                xEndIndex = xStartIndex + xSize;
+
+                xStartIndex = userId.length() + 1;
+                xEndIndex = message.length() - 172;
                 Xj = message.substring(xStartIndex, xEndIndex);
             }
         }
@@ -241,7 +245,8 @@ public class User {
             String verify = "2" + Xj + nonceStr;
 
             Signature signature = Signature.getInstance("SHA1withRSA");
-            signature.initVerify(publicKey);
+            PublicKey pubKey = publicKeyMap.get(idUser);
+            signature.initVerify(pubKey);
             String sigma = message.substring(xEndIndex);
 
             byte[] arr = Base64.getDecoder().decode(sigma.getBytes());
@@ -259,7 +264,7 @@ public class User {
     //TODO: ask if it is correct way, and then how to encrypt and decrypt message
     public void computeSessionKey() {
         Integer n = 0;
-        Collections.sort(otherZ);
+        sort(otherZ);
         for (int i = 0; i < otherZ.size() - 1; i++) {
             Integer si1 = getSi(otherZ.get(i));
             Integer si2 = getSi(otherZ.get(i + 1));
@@ -272,6 +277,7 @@ public class User {
         for (int i = 0; i < n; i++) {
             sessionKey = (sessionKey * G) % Q;
         }
+
     }
 
 
@@ -292,7 +298,7 @@ public class User {
 
     public String getX(Integer k) {
         //TODO: check if it is correct way to compute X
-        Collections.sort(otherZ);
+        sort(otherZ);
         int index = otherZ.indexOf(k);
         int prevIndex = index - 1;
         int aftIndex = index + 1;
@@ -316,7 +322,8 @@ public class User {
         }
         Integer Xi = Z1 * otherZ2;
         Integer copy = Xi;
-        Integer pow = new Integer(this.r);
+        Integer pow = Integer.parseInt(r, 2);
+        ;
         for (int i = 0; i < pow; i++) {
             Xi = (Xi * copy) % Q;
         }
